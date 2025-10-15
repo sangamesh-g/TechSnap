@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Accept Invite to {{ invite.org.name }}</h2>
+    <p>You have been invited to join the organization as {{ invite.get_role_display }}.</p>
+
+    {% if invite.payment and invite.payment.status != "paid" %}
+        <p>To join the organization, you need to complete the payment of ₹500.</p>
+        <form id="payment-form">
+            <input type="hidden" name="invite_id" value="{{ invite.id }}">
+            <button type="button" id="pay-btn">Pay Now</button>
+        </form>
+    {% elif invite.payment and invite.payment.status == "paid" %}
+        <p>Payment is already completed. Click below to accept the invite.</p>
+        <form method="POST" action="{% url 'organizations:accept_invite' invite.token %}">
+            {% csrf_token %}
+            <button type="submit">Accept Invite</button>
+        </form>
+    {% else %}
+        <p>Invite is invalid or expired.</p>
+    {% endif %}
+</div>
+{% endblock %}

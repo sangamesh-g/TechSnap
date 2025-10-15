@@ -1,0 +1,126 @@
+{% load tz %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Razorpay Payment Page</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    * { box-sizing: border-box; font-family: "Poppins", sans-serif; }
+    body { margin:0; padding:0; min-height:100vh; display:flex; justify-content:center; align-items:flex-start; background:#74ABE2; color:#fff; padding-top:40px; }
+    .container { background:#fff; color:#333; padding:30px; border-radius:16px; box-shadow:0 6px 20px rgba(0,0,0,0.2); width:90%; max-width:450px; text-align:center; }
+    h2 { margin-bottom:20px; color:#222; }
+    input[type="number"] { width:100%; padding:12px; margin-bottom:15px; border:1.5px solid #ccc; border-radius:8px; font-size:16px; }
+    input[type="number"]:focus { border-color:#5563DE; outline:none; }
+    button { width:100%; padding:12px; border:none; border-radius:8px; background:#5563DE; color:#fff; font-size:18px; cursor:pointer; transition:0.3s; }
+    button:hover { background:#3641B7; }
+    .loader { display:none; margin-top:15px; color:#555; }
+    .footer { margin-top:25px; font-size:13px; color:#777; }
+    table { width:100%; border-collapse: collapse; margin-top:20px; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:center; font-size:14px; }
+    th { background:#5563DE; color:#fff; }
+    tr:nth-child(even) { background:#f2f2f2; }
+    .status-paid { color:green; font-weight:bold; }
+    .status-failed { color:red; font-weight:bold; }
+    .status-created { color:orange; font-weight:bold; }
+    .status-canceled { color:gray; font-weight:bold; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h2>💳 Razorpay Payment Demo</h2>
+    <form id="payment-form">
+        <input type="number" name="amount" placeholder="Enter amount (INR)" required min="1" />
+        <button type="button" id="pay-btn">Pay Now</button>
+    </form>
+    <div class="loader" id="loader">Processing payment...</div>
+
+    <!-- Recent Payment History
+    {% if payments %}
+    <h3>Recent Payments</h3>
+    <table>
+        <tr>
+            <th>Order ID</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Created At</th>
+        </tr>
+        {% for p in payments %}
+        <tr>
+            <td>{{ p.order_id }}</td>
+            <td>{{ p.amount|floatformat:2}}</td>
+            <td class="status-{{ p.status }}">{{ p.status }}</td>
+            <td>{{ p.created_at|localtime|date:"d M Y H:i" }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %} -->
+
+    <div class="footer">&copy; 2025 My Django Site | Secure Payments via Razorpay</div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+const payBtn = document.getElementById("pay-btn");
+const loader = document.getElementById("loader");
+
+payBtn.onclick = async function() {
+    try {
+        loader.style.display = "block";
+        payBtn.disabled = true;
+
+        const formData = new FormData(document.getElementById("payment-form"));
+        const response = await fetch("{% url 'payments:create_order' %}", { method:"POST", body:formData });
+        const order = await response.json();
+
+        if (!order.id) { alert("Error creating order."); loader.style.display="none"; payBtn.disabled=false; return; }
+
+        const options = {
+            key: "{{ razorpay_key }}",
+            amount: order.amount*100,
+            currency: "INR",
+            name: "My Django Site",
+            description: "Payment Demo",
+            order_id: order.id,
+            handler: async function(response) {
+                const res = await fetch("{% url 'payments:verify_payment' %}", {
+                    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(response)
+                });
+                const data = await res.json();
+                alert(data.status);
+                loader.style.display="none"; payBtn.disabled=false; location.reload(); // reload to update recent payments
+            },
+            modal: {
+                ondismiss: async function() {
+                    await fetch("{% url 'payments:update_status' %}", {
+                        method:"POST", headers:{"Content-Type":"application/json"},
+                        body: JSON.stringify({order_id: order.id, status:"canceled"})
+                    });
+                    alert("Payment canceled by user."); loader.style.display="none"; payBtn.disabled=false;
+                }
+            },
+            prefill: { name:"Test User", email:"test@example.com", contact:"9999999999" },
+            theme: { color:"#5563DE" }
+        };
+
+        const rzp = new Razorpay(options);
+
+        rzp.on('payment.failed', async function(response){
+            await fetch("{% url 'payments:update_status' %}", {
+                method:"POST", headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({order_id: order.id, status:"failed", reason: response.error.description})
+            });
+            alert("Payment Failed: " + response.error.description);
+            loader.style.display="none"; payBtn.disabled=false;
+        });
+
+        rzp.open();
+
+    } catch(error) {
+        alert("Payment error: " + error.message);
+        loader.style.display="none"; payBtn.disabled=false;
+    }
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-10">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">{{ org.name }} Dashboard</h2>
+            <p class="text-gray-600">Campus: {{ org.campus|default:"-" }}</p>
+        </div>
+        <div class="text-right">
+            <span class="inline-block bg-blue-600 text-white text-sm px-3 py-1 rounded-full uppercase shadow">
+                You are {{ membership.role }}
+            </span>
+            <a href="{% url 'organizations:leave_organization' org.uuid %}"
+               class="ml-3 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded shadow text-sm">
+               Leave Organization
+            </a>
+        </div>
+    </div>
+
+    <!-- Invite Panel (Owner/Admin only) -->
+    {% if membership.role in admin_roles %}
+    <div class="mb-8 p-5 bg-gray-50 rounded shadow">
+        <h3 class="text-xl font-semibold mb-3">Invite Members</h3>
+        <form method="POST" class="flex flex-col md:flex-row gap-3">
+            {% csrf_token %}
+            {{ invite_form.email }}
+            {{ invite_form.role }}
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                Send Invite
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Members List -->
+    <div class="p-5 bg-white rounded shadow">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-xl font-semibold">Active Members</h3>
+            <input type="text" id="memberSearch" placeholder="Search by name/email..."
+                   class="w-1/3 p-2 border rounded text-sm" />
+        </div>
+
+        <table class="min-w-full bg-white border text-sm">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="py-2 px-4 border-b text-left">Name</th>
+                    <th class="py-2 px-4 border-b text-left">Email</th>
+                    <th class="py-2 px-4 border-b text-left">Role</th>
+                    <th class="py-2 px-4 border-b text-left">Invited At</th>
+                    <th class="py-2 px-4 border-b text-left">Joined At</th>
+                    {% if membership.role == "owner" %}
+                    <th class="py-2 px-4 border-b text-left">Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+
+            <tbody id="memberTable">
+                {% for m in members %}
+                    {% if membership.role == "owner" %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="py-2 px-4 border-b">{{ m.user.get_full_name|default:"-" }}</td>
+                            <td class="py-2 px-4 border-b">{{ m.user.email }}</td>
+                            <td class="py-2 px-4 border-b">{{ m.get_role_display }}</td>
+                            <td class="py-2 px-4 border-b">
+                                {% if m.invited_at %}{{ m.invited_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                            </td>
+                            <td class="py-2 px-4 border-b">
+                                {% if m.joined_at %}{{ m.joined_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                            </td>
+                            <td class="py-2 px-4 border-b">
+                                <form method="POST" action="{% url 'organizations:update_member_role' org.uuid m.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <select name="role" class="border rounded text-sm px-2 py-1">
+                                        <option value="member" {% if m.role == "member" %}selected{% endif %}>Member</option>
+                                        <option value="creator" {% if m.role == "creator" %}selected{% endif %}>Creator</option>
+                                        <option value="admin" {% if m.role == "admin" %}selected{% endif %}>Admin</option>
+                                        <option value="owner" {% if m.role == "owner" %}selected{% endif %}>Owner</option>
+                                    </select>
+                                    <button type="submit"
+                                            class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded ml-1">
+                                        Change
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+
+                    {% elif membership.role == "admin" and m.role in creator_roles %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="py-2 px-4 border-b">{{ m.user.get_full_name|default:"-" }}</td>
+                            <td class="py-2 px-4 border-b">{{ m.user.email }}</td>
+                            <td class="py-2 px-4 border-b">{{ m.get_role_display }}</td>
+                            <td class="py-2 px-4 border-b">
+                                {% if m.invited_at %}{{ m.invited_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                            </td>
+                            <td class="py-2 px-4 border-b">
+                                {% if m.joined_at %}{{ m.joined_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                            </td>
+                        </tr>
+
+                    {% elif membership.role == "creator" and m.role == "member" %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="py-2 px-4 border-b">{{ m.user.get_full_name|default:"-" }}</td>
+                            <td class="py-2 px-4 border-b">{{ m.user.email }}</td>
+                            <td class="py-2 px-4 border-b">{{ m.get_role_display }}</td>
+                            <td class="py-2 px-4 border-b">
+                                {% if m.invited_at %}{{ m.invited_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                            </td>
+                            <td class="py-2 px-4 border-b">
+                                {% if m.joined_at %}{{ m.joined_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                            </td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pending Invites -->
+    {% if invites_by_email %}
+    <div class="p-5 bg-gray-50 rounded shadow mt-8">
+        <h3 class="text-lg font-semibold mb-3 text-gray-700">Pending Invitations</h3>
+        <ul class="list-disc ml-6 text-sm text-gray-700">
+            {% for email, invite in invites_by_email.items %}
+                {% if not invite.accepted %}
+                    <li>
+                        {{ email }} — Invited as <strong>{{ invite.get_role_display }}</strong>
+                        ({{ invite.created_at|date:"M d, Y H:i" }})
+                    </li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Search Script -->
+<script>
+const searchInput = document.getElementById('memberSearch');
+searchInput.addEventListener('input', function() {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#memberTable tr');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(filter) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

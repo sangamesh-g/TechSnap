@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Create Organization{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white shadow-lg rounded-lg p-8">
+  <h2 class="text-3xl font-bold text-center mb-6">Create Your Organization</h2>
+  <form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn-primary w-full">Create</button>
+  </form>
+</div>
+{% endblock %}

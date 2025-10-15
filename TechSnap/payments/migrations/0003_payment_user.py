@@ -17,7 +17,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='payment',
             name='user',
-            field=models.ForeignKey(default=django.utils.timezone.now, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
-            preserve_default=False,
+            field=models.ForeignKey(null=True, blank=True, to='accounts.user', on_delete=models.CASCADE)
         ),
     ]

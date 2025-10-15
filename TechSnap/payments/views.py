@@ -94,36 +94,57 @@ def update_status(request):
             return JsonResponse({"status": "order not found"}, status=404)
     return JsonResponse({"status": "invalid request"}, status=400)
 
+import uuid
+
+
+client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+
 @login_required
 def process_payment(request, token):
     """
-    Handles ₹500 payment for joining an organization as a member.
+    Step 1: Create a Razorpay order for ₹500 when accepting an invite.
+    Step 2: Redirect user to payment page.
+    Step 3: Verify payment via webhook or frontend callback.
     """
-    invite = get_object_or_404(Invite, token=token, accepted=False, expires_at__gt=timezone.now())
+    invite = get_object_or_404(
+        Invite,
+        token=token,
+        accepted=False,
+        expires_at__gt=timezone.now()
+    )
 
-    if request.method == "POST":
-        # 1. Create or update the payment record
-        payment, created = Payment.objects.get_or_create(
-            invite=invite,  # if Payment has an 'invite' field
-            defaults={
-                "amount": 500,
-                "status": "paid",
-                "user": request.user,  # if Payment tracks user
-                "created_at": timezone.now(),
-            },
-        )
-        if not created:
-            payment.status = "paid"
-            payment.save(update_fields=["status"])
+    amount_inr = 500
+    amount_paise = amount_inr * 100
 
-        # 2. Link payment to invite
-        invite.payment = payment
-        invite.save(update_fields=["payment"])
+    # 1️⃣ Create a Razorpay order
+    razorpay_order = client.order.create({
+        "amount": amount_paise,
+        "currency": "INR",
+        "payment_capture": 1,  # auto-capture
+        "notes": {"invite_id": str(invite.id), "user": str(request.user.id)}
+    })
 
-        # 3. Now accept invite safely
-        invite.accept(request.user)
+    # 2️⃣ Create Payment entry in DB
+    payment = Payment.objects.create(
+        user=request.user,
+        order_id=razorpay_order["id"],
+        amount=amount_paise,
+        status="created"
+    )
 
-        messages.success(request, f"You have successfully joined {invite.org.name} after payment of ₹500.")
-        return redirect("accounts:choose_action")
+    # Link payment to invite
+    invite.payment = payment
+    invite.save(update_fields=["payment"])
 
-    return render(request, "payments/process_payment.html", {"invite": invite, "amount": 500})
+    # 3️⃣ Render Razorpay checkout page
+    context = {
+        "invite": invite,
+        "razorpay_key": settings.RAZORPAY_KEY_ID,
+        "amount": amount_inr,
+        "order_id": razorpay_order["id"],
+        "user_email": request.user.email,
+        "user_name": request.user.get_full_name() or request.user.username,
+        "callback_url": "/payments/verify/",
+    }
+    return render(request, "payments/process_payment.html", context)

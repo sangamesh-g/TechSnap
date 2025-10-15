@@ -1,16 +1,112 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% block content %}
-<div class="max-w-lg mx-auto mt-10 bg-white shadow rounded p-6 text-center">
-    <h2 class="text-2xl font-bold mb-4">Join {{ invite.org.name }}</h2>
-    <p class="mb-6 text-gray-700">A ₹500 payment is required to join as a {{ invite.get_role_display }}.</p>
+<div class="payment-container text-center mt-5">
+    <h2 class="text-2xl font-semibold mb-3">Join {{ invite.org.name }}</h2>
+    <p class="text-lg text-gray-700 mb-5">Pay ₹{{ amount }} to become a member</p>
 
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700">
-            Pay ₹500 & Join
-        </button>
-    </form>
-
-    <p class="text-sm text-gray-500 mt-3">This will simulate a successful payment for now.</p>
+    <button id="pay-btn" class="razorpay-btn">
+        <span class="btn-text">Pay Now</span>
+        <span class="loading-spinner"></span>
+    </button>
 </div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+const options = {
+    key: "{{ razorpay_key }}",
+    amount: "{{ amount|floatformat:2 }}" * 100,
+    currency: "INR",
+    name: "TechSnap Membership",
+    description: "Payment for joining {{ invite.org.name }}",
+    order_id: "{{ order_id }}",
+    handler: function (response) {
+        document.querySelector(".btn-text").innerText = "Verifying...";
+        fetch("{{ callback_url }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(response)
+        }).then(res => res.json()).then(data => {
+            if (data.status === "Payment Successful") {
+                window.location.href = "{% url 'accounts:choose_action' %}";
+            } else {
+                alert("Payment failed!");
+                document.querySelector(".btn-text").innerText = "Pay Now";
+            }
+        });
+    },
+    prefill: {
+        name: "{{ user_name }}",
+        email: "{{ user_email }}"
+    },
+    theme: {
+        color: "#3B82F6",  // Tailwind blue-500
+        backdrop_color: "#F9FAFB",
+        hide_topbar: false
+    }
+};
+
+document.getElementById('pay-btn').onclick = function(e) {
+    const btn = e.target;
+    btn.classList.add('loading');
+    const rzp = new Razorpay(options);
+    rzp.open();
+    e.preventDefault();
+};
+</script>
+
+<style>
+/* Unique Razorpay Styling */
+.payment-container {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 30px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+/* Modern Pay Button */
+.razorpay-btn {
+    position: relative;
+    background: linear-gradient(90deg, #2563EB, #3B82F6);
+    color: #fff;
+    font-weight: 600;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.razorpay-btn:hover {
+    background: linear-gradient(90deg, #1D4ED8, #2563EB);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(59,130,246,0.3);
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.5);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-left: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.razorpay-btn.loading .btn-text {
+    opacity: 0.6;
+}
+
+.razorpay-btn.loading .loading-spinner {
+    display: inline-block;
+}
+</style>
 {% endblock %}

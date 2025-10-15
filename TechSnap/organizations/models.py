@@ -103,3 +103,16 @@ class Invite(models.Model):
 
     def __str__(self):
         return f"Invite {self.email} -> {self.org} ({self.role})"
+    
+    def accept(self, user):
+        if not self.is_valid():
+            raise ValueError("Invite is invalid or expired.")
+        # Require payment to be completed before accepting invite
+        if not self.payment or getattr(self.payment, 'status', None) != 'paid':
+            raise ValueError("Payment of ₹500 is required to accept this invite.")
+        membership, created = Membership.objects.get_or_create(
+            user=user, org=self.org, defaults={"role": self.role}
+        )
+        self.accepted = True
+        self.save()
+        return membership

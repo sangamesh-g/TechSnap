@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-lg mx-auto mt-10 bg-white shadow rounded p-6 text-center">
+    <h2 class="text-2xl font-bold mb-4">Join {{ invite.org.name }}</h2>
+    <p class="mb-6 text-gray-700">A ₹500 payment is required to join as a {{ invite.get_role_display }}.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700">
+            Pay ₹500 & Join
+        </button>
+    </form>
+
+    <p class="text-sm text-gray-500 mt-3">This will simulate a successful payment for now.</p>
+</div>
+{% endblock %}

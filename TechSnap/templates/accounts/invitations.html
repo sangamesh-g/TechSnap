@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container mx-auto px-4 py-10">
+    <h2 class="text-2xl font-bold mb-4">Your Invitations</h2>
+    {% if invites %}
+        <div class="bg-white rounded shadow p-4">
+            <ul class="divide-y">
+                {% for invite in invites %}
+                <li class="py-3 flex justify-between items-center">
+                    <div>
+                        <div class="font-semibold">{{ invite.org.name }}</div>
+                        <div class="text-sm text-gray-600">
+                            Role: {{ invite.get_role_display }} • 
+                            Sent by {{ invite.invited_by.get_full_name|default:invite.invited_by.username }}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            Created: {{ invite.created_at|date:"M d, Y H:i" }} • 
+                            Expires: {{ invite.expires_at|date:"M d, Y H:i" }}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        {% if invite.accepted %}
+                            <span class="text-green-600">Accepted</span>
+                        {% else %}
+                            <a href="{% url 'organizations:accept_invite' invite.token %}" 
+                               class="bg-blue-600 text-white px-3 py-1 rounded">Accept</a>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <p class="text-gray-600">You have no pending invitations.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -160,34 +160,11 @@ def accept_invite(request, token):
                 messages.error(request, str(exc))
                 return redirect("accounts:dashboard")
         else:
-            return redirect("organizations:process_payment", token=token)
+            return redirect("payments:process_payment", token=token)
     else:
         signup_url = reverse("accounts:signup")
         return redirect(f"{signup_url}?invite_token={invite.token}&email={invite.email}")
 
-def process_payment(request, token):
-    invite = get_object_or_404(Invite, token=token)
-    if request.method == 'POST':
-        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-        try:
-            order = client.order.create({
-                "amount": 500 * 100,  # 500 INR in paise
-                "currency": "INR",
-                "payment_capture": 1
-            })
-            invite.payment.order_id = order['id']
-            invite.payment.save()
-            return render(request, 'payments/payment_page.html', {
-                'razorpay_key': settings.RAZORPAY_KEY_ID,
-                'order_id': order['id'],
-                'amount': 500,
-                'invite': invite
-            })
-        except Exception as e:
-            messages.error(request, f"Error creating payment order: {e}")
-            return redirect("accounts:dashboard")
-
-    return render(request, 'organizations/process_payment.html', {'invite': invite})
 
 @login_required
 def join_by_uuid(request):

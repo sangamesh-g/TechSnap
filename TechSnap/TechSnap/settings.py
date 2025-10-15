@@ -146,3 +146,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 TIME_ZONE = 'Asia/Kolkata'
 USE_TZ = True
+AUTH_USER_MODEL = 'accounts.User'

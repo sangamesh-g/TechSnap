@@ -113,3 +113,11 @@ def profile_settings(request):
     else:
         form = ProfileUpdateForm(instance=user)
     return render(request, "accounts/profile_settings.html", {"form": form})
+
+@login_required
+def invitations_view(request):
+    """Show pending invitations sent to the logged-in user's email.
+    Allows user to accept (which will require payment for member role)."""
+    user = request.user
+    invites = Invite.objects.filter(email=user.email, accepted=False, expires_at__gt=timezone.now())
+    return render(request, "accounts/invitations.html", {"invites": invites})

@@ -11,6 +11,11 @@
            Create New Organization
         </a>
     </div>
+    
+    <button onclick="location.href='{% url 'accounts:invitations' %}'" 
+            class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded shadow mb-8">
+        View Invitations
+    </button>
 
     {% if memberships %}
         <h3 class="text-xl font-semibold mb-4 text-gray-700">Your Organizations</h3>

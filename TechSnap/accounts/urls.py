@@ -10,4 +10,5 @@ urlpatterns = [
     path("profile/", views.profile_settings, name="profile_settings"),
     path('logout/', views.logout_view, name='logout'),
     path('choose/', views.choose_action, name='choose_action'),
+    path('invitations/', views.invitations_view, name='invitations'),
 ]

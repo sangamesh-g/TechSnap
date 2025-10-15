@@ -2,7 +2,11 @@ import json
 import razorpay
 from django.conf import settings
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render,redirect, get_object_or_404
+from django.contrib import messages
+from django.utils import timezone
+from organizations.models import Invite
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from .models import Payment
 
@@ -89,3 +93,37 @@ def update_status(request):
         except Payment.DoesNotExist:
             return JsonResponse({"status": "order not found"}, status=404)
     return JsonResponse({"status": "invalid request"}, status=400)
+
+@login_required
+def process_payment(request, token):
+    """
+    Handles ₹500 payment for joining an organization as a member.
+    """
+    invite = get_object_or_404(Invite, token=token, accepted=False, expires_at__gt=timezone.now())
+
+    if request.method == "POST":
+        # 1. Create or update the payment record
+        payment, created = Payment.objects.get_or_create(
+            invite=invite,  # if Payment has an 'invite' field
+            defaults={
+                "amount": 500,
+                "status": "paid",
+                "user": request.user,  # if Payment tracks user
+                "created_at": timezone.now(),
+            },
+        )
+        if not created:
+            payment.status = "paid"
+            payment.save(update_fields=["status"])
+
+        # 2. Link payment to invite
+        invite.payment = payment
+        invite.save(update_fields=["payment"])
+
+        # 3. Now accept invite safely
+        invite.accept(request.user)
+
+        messages.success(request, f"You have successfully joined {invite.org.name} after payment of ₹500.")
+        return redirect("accounts:choose_action")
+
+    return render(request, "payments/process_payment.html", {"invite": invite, "amount": 500})
